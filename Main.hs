@@ -9,8 +9,11 @@
   , TypeApplications
   , ViewPatterns
   , DeriveGeneric
+  , DeriveFunctor
+  , StandaloneDeriving
   , FlexibleContexts
   , AllowAmbiguousTypes
+  , TemplateHaskell
 #-}
 
 module Main where
@@ -25,8 +28,10 @@ import Control.Monad.Free
 import Data.Vec.Lazy (Vec(..))
 import Data.Fin (Fin, fromNat)
 import Data.Fin.Enum (to, from, Enum, EnumSize)
-import Data.Type.Nat (Nat(..), Nat3, fromNatural, SNatI)
+import Data.Type.Nat (Nat(..), fromNatural, SNatI)
 import Control.Lens (itraverse)
+import Control.Monad.Free
+import Control.Monad.Free.TH
 
 data QuestionType where
   Text   :: QuestionType
@@ -40,37 +45,25 @@ type family Answer (qt :: QuestionType) = (a :: *) | a -> qt where
   Answer Text = String
   Answer (Choice n) = Fin n
 
-data Questionnaire a where
-  Result :: a -> Questionnaire a
-  Ask    :: Question q -> (Answer q -> Questionnaire a) -> Questionnaire a
+data QuestionnaireF a = forall q. Ask (Question q) (Answer q -> a)
+instance Functor QuestionnaireF where
+  fmap f (Ask q c) = Ask q $ f . c
 
-instance Functor Questionnaire where
-  fmap f fa = pure f <*> fa
+$(makeFree ''QuestionnaireF)
 
-instance Applicative Questionnaire where
-  pure = return
-  (<*>) = ap
+type Questionnaire a = Free (QuestionnaireF) a
 
-instance Monad Questionnaire where
-  return = Result
-
-  Result a  >>= amb = amb a
-  (Ask q c) >>= amb = Ask q $ \ans -> (c ans) >>= amb
-
-ask :: Question q -> Questionnaire (Answer q)
-ask q = Ask q Result
-
-select :: forall n. SNatI n => String -> Vec n String -> Questionnaire (Fin n)
+select :: forall n q. SNatI n => String -> Vec n String -> Questionnaire (Fin n)
 select s v = do
   i <- ask $ ChoiceQuestion s v
   pure $ i
 
 select_ s v = () <$ select s v
 
-choose :: forall a. (Enum a, Prompt a, SNatI (EnumSize a)) => String -> Questionnaire a
+choose :: forall a q. (Enum a, Prompt a, SNatI (EnumSize a)) => String -> Questionnaire a
 choose s = to <$> select s (prompt (Proxy :: Proxy a))
 
-choose_ :: forall a. (Enum a, Prompt a, SNatI (EnumSize a)) => String -> Questionnaire ()
+choose_ :: forall a q. (Enum a, Prompt a, SNatI (EnumSize a)) => String -> Questionnaire ()
 choose_ s = () <$ choose @a s
 
 yesno :: String -> Questionnaire Bool
@@ -135,21 +128,23 @@ promptChoice = do
       print "Sorry, couldn't parse your input. Please select one of the options above."
       promptChoice
 
-run :: Questionnaire a -> IO a
-run (Result a) = pure a
-run (Ask q c) = case q of
+interpretF :: QuestionnaireF a -> IO a
+interpretF (Ask q c) = case q of
   TextQuestion q -> do
     putStrLn $ "Q: " ++ q
     putStrLn "Please enter your answer below"
     ans <- getLine
-    run $ c ans
+    pure $ c ans
 
   ChoiceQuestion q v -> do
     putStrLn $ "Q: " ++ q
     putStrLn "Please select one of the following options"
     itraverse (\i a -> putStrLn $ show i ++ ". " ++ a) v
     i <- promptChoice
-    run $ c i
+    pure $ c i
+
+run :: Questionnaire a -> IO a
+run = foldFree interpretF
 
 main :: IO ()
 main = run test >>= print
