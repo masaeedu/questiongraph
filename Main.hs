@@ -54,7 +54,7 @@ instance Functor QuestionnaireF where
 
 $(makeFree ''QuestionnaireF)
 
-type Questionnaire a = Free (QuestionnaireF) a
+type Questionnaire = Free QuestionnaireF
 
 -- An interactive, CLI interpretation of what it means to run a questionnaire
 promptChoice :: forall n. SNatI n => IO (Fin n)
