@@ -1,0 +1,38 @@
+{
+    "all-hies": {
+        "branch": "master",
+        "description": "Cached Haskell IDE Engine Nix builds for all GHC versions",
+        "homepage": "",
+        "owner": "Infinisil",
+        "repo": "all-hies",
+        "rev": "b06fdd252c71404ace1eea5e09b562bcf7f834f7",
+        "sha256": "1gzipcmhm6xbfjdjx3i4057vysmvrm6xykx9aplj3wcwmk3bhmdy",
+        "type": "tarball",
+        "url": "https://github.com/Infinisil/all-hies/archive/b06fdd252c71404ace1eea5e09b562bcf7f834f7.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "niv": {
+        "branch": "master",
+        "description": "Easy dependency management for Nix projects",
+        "homepage": "https://github.com/nmattia/niv",
+        "owner": "nmattia",
+        "repo": "niv",
+        "rev": "099f9ea92169c2edbc3ca33313b68f5e9686e800",
+        "sha256": "1rqaw2r5wbbfpbxjgwrwzf619la1iqvzp3mhq1mfz9vk4hjd3335",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/niv/archive/099f9ea92169c2edbc3ca33313b68f5e9686e800.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "nixos-18.09",
+        "description": "Nixpkgs/NixOS branches that track the Nixpkgs/NixOS channels",
+        "homepage": null,
+        "owner": "NixOS",
+        "repo": "nixpkgs-channels",
+        "rev": "a7e559a5504572008567383c3dc8e142fa7a8633",
+        "sha256": "16j95q58kkc69lfgpjkj76gw5sx8rcxwi3civm0mlfaxxyw9gzp6",
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs-channels/archive/a7e559a5504572008567383c3dc8e142fa7a8633.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}

@@ -1,0 +1,14 @@
+cabal-version:       >=1.10
+
+name:                questiongraph
+version:             0.1.0.0
+license-file:        LICENSE
+author:              Asad Saeeduddin
+maintainer:          masaeedu@gmail.com
+build-type:          Simple
+extra-source-files:  CHANGELOG.md
+
+library
+  exposed-modules:     Main
+  build-depends:       base, free, vec, fin, lens
+  default-language:    Haskell2010
