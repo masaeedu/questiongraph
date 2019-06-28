@@ -33,6 +33,7 @@ import Control.Lens (itraverse)
 import Control.Monad.Free
 import Control.Monad.Free.TH
 
+-- Types
 data QuestionType where
   Text   :: QuestionType
   Choice :: Nat -> QuestionType
@@ -46,6 +47,8 @@ type family Answer (qt :: QuestionType) = (a :: *) | a -> qt where
   Answer (Choice n) = Fin n
 
 data QuestionnaireF a = forall q. Ask (Question q) (Answer q -> a)
+
+-- Free monad instance
 instance Functor QuestionnaireF where
   fmap f (Ask q c) = Ask q $ f . c
 
@@ -53,17 +56,49 @@ $(makeFree ''QuestionnaireF)
 
 type Questionnaire a = Free (QuestionnaireF) a
 
-select :: forall n q. SNatI n => String -> Vec n String -> Questionnaire (Fin n)
-select s v = do
-  i <- ask $ ChoiceQuestion s v
-  pure $ i
+-- An interactive, CLI interpretation of what it means to run a questionnaire
+promptChoice :: forall n. SNatI n => IO (Fin n)
+promptChoice = do
+  l <- getLine
+  let mi = fromNat =<< fromNatural <$> readMaybe l
+  case mi of
+    Just i  -> pure i
+    Nothing -> do
+      print "Sorry, couldn't parse your input. Please select one of the options above."
+      promptChoice
 
-select_ s v = () <$ select s v
+interpretF :: QuestionnaireF a -> IO a
+interpretF (Ask q c) = case q of
+  TextQuestion q -> do
+    putStrLn $ "Q: " ++ q
+    putStrLn "Please enter your answer below"
+    ans <- getLine
+    pure $ c ans
 
-choose :: forall a q. (Enum a, Prompt a, SNatI (EnumSize a)) => String -> Questionnaire a
-choose s = to <$> select s (prompt (Proxy :: Proxy a))
+  ChoiceQuestion q v -> do
+    putStrLn $ "Q: " ++ q
+    putStrLn "Please select one of the following options"
+    itraverse (\i a -> putStrLn $ show i ++ ". " ++ a) v
+    i <- promptChoice
+    pure $ c i
 
-choose_ :: forall a q. (Enum a, Prompt a, SNatI (EnumSize a)) => String -> Questionnaire ()
+runQuestionnaire :: Questionnaire a -> IO a
+runQuestionnaire = foldFree interpretF
+
+-- Class for associating a prompt with each chooseable datatype
+class Enum a => Prompt a where
+  prompt :: Proxy a -> Vec (EnumSize a) String
+
+instance Prompt Bool where
+  prompt _ = "no" ::: "yes" ::: VNil
+
+-- Some useful functions for building questionnaires
+choose :: forall a. (Enum a, Prompt a, SNatI (EnumSize a)) => String -> Questionnaire a
+choose s = do
+  i <- ask $ ChoiceQuestion s (prompt (Proxy :: Proxy a))
+  pure $ to i
+
+choose_ :: forall a. (Enum a, Prompt a, SNatI (EnumSize a)) => String -> Questionnaire ()
 choose_ s = () <$ choose @a s
 
 yesno :: String -> Questionnaire Bool
@@ -76,17 +111,7 @@ freeform = ask . TextQuestion
 
 freeform_ s = () <$ freeform s
 
-instance Enum (Fin n) where
-  type EnumSize (Fin n) = n
-  to = id
-  from = id
-
-class Enum a => Prompt a where
-  prompt :: Proxy a -> Vec (EnumSize a) String
-
-instance Prompt Bool where
-  prompt _ = "no" ::: "yes" ::: VNil
-
+-- Let's build a questionnaire
 data Activity = Gym | Circuit | Cycling
   deriving (Generic, Eq)
 instance Enum Activity
@@ -118,33 +143,5 @@ test = do
     freeform_ "How long did you exercise for?"
   choose_ @Stretching "Did you stretch out?"
 
-promptChoice :: forall n. SNatI n => IO (Fin n)
-promptChoice = do
-  l <- getLine
-  let mi = fromNat =<< fromNatural <$> readMaybe l
-  case mi of
-    Just i  -> pure i
-    Nothing -> do
-      print "Sorry, couldn't parse your input. Please select one of the options above."
-      promptChoice
-
-interpretF :: QuestionnaireF a -> IO a
-interpretF (Ask q c) = case q of
-  TextQuestion q -> do
-    putStrLn $ "Q: " ++ q
-    putStrLn "Please enter your answer below"
-    ans <- getLine
-    pure $ c ans
-
-  ChoiceQuestion q v -> do
-    putStrLn $ "Q: " ++ q
-    putStrLn "Please select one of the following options"
-    itraverse (\i a -> putStrLn $ show i ++ ". " ++ a) v
-    i <- promptChoice
-    pure $ c i
-
-run :: Questionnaire a -> IO a
-run = foldFree interpretF
-
 main :: IO ()
-main = run test >>= print
+main = runQuestionnaire test >>= print
